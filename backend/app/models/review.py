@@ -12,15 +12,27 @@ class Review(Base):
     case_id = Column(Integer, ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
     diagnosis_id = Column(Integer, ForeignKey("diagnoses.id", ondelete="SET NULL"), nullable=True, index=True)
     
-    reviewer_name = Column(String(128), nullable=False)
+    reviewer_name = Column(String(128), nullable=False, default="Network Engineer")
     
-    # Decision: APPROVED, REJECTED, MODIFIED
-    decision = Column(String(32), nullable=False, default="APPROVED")
+    # Decision: ACCEPTED, EDITED, REJECTED
+    decision = Column(String(32), nullable=False, default="ACCEPTED")
     
-    # Mandatory or optional review notes justifying decision
+    # Original AI diagnosis payload snapshot
+    original_diagnosis = Column(JSON, nullable=True, default=dict)
+    
+    # Human-corrected diagnosis payload (if decision == EDITED)
+    corrected_diagnosis = Column(JSON, nullable=True, default=dict)
+    
+    # Reviewer notes/explanation (mandatory for EDITED)
     review_notes = Column(Text, nullable=True)
     
-    # Modified commands if human reviewer adjusted the AI recommendation
+    # Rejection reason (mandatory for REJECTED)
+    rejection_reason = Column(Text, nullable=True)
+    
+    # Why AI was incorrect or incomplete (for Responsible AI audit log)
+    why_ai_incorrect = Column(Text, nullable=True)
+    
+    # Modified CLI commands for quick access
     modified_commands = Column(JSON, nullable=True, default=list)
     
     reviewed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
