@@ -11,6 +11,19 @@ export default function VerificationModal({ caseId, caseTitle, latestReview, onC
   const [evidencePing, setEvidencePing] = useState('5/5 packets received, 0% packet loss.');
   const [submitting, setSubmitting] = useState(false);
 
+  const formatErrorMessage = (err) => {
+    const detail = err.response?.data?.detail;
+    if (!detail) return err.message || 'An unexpected error occurred';
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) {
+      return detail.map((d) => d.msg || d.message || JSON.stringify(d)).join('; ');
+    }
+    if (typeof detail === 'object') {
+      return detail.msg || detail.message || JSON.stringify(detail);
+    }
+    return String(detail);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -30,11 +43,12 @@ export default function VerificationModal({ caseId, caseTitle, latestReview, onC
       alert(`Verification recorded as: ${status}`);
       onSuccess();
     } catch (err) {
-      alert('Error recording verification: ' + (err.response?.data?.detail || err.message));
+      alert('Error recording verification: ' + formatErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
   };
+
 
   const finalFixSteps = latestReview?.decision === 'EDITED' && latestReview?.corrected_diagnosis?.fix_steps?.length > 0
     ? latestReview.corrected_diagnosis.fix_steps

@@ -36,8 +36,12 @@ def submit_human_review(id_or_case_id: str, review_in: ReviewCreate, db: Session
             diag_id = latest_diag.id
 
     decision = review_in.decision.upper()
-    if decision == "APPROVED":
+    if decision in ["APPROVED", "ACCEPT"]:
         decision = "ACCEPTED"
+    elif decision == "EDIT":
+        decision = "EDITED"
+    elif decision == "REJECT":
+        decision = "REJECTED"
 
     # Validation checks
     if decision == "EDITED" and not (review_in.review_notes and review_in.review_notes.strip()):

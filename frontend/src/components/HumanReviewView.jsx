@@ -80,6 +80,19 @@ export default function HumanReviewView({ selectedCaseId, onNavigateToVerificati
     }
   }, [currentCaseId]);
 
+  const formatErrorMessage = (err) => {
+    const detail = err.response?.data?.detail;
+    if (!detail) return err.message || 'An unexpected error occurred';
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) {
+      return detail.map((d) => d.msg || d.message || JSON.stringify(d)).join('; ');
+    }
+    if (typeof detail === 'object') {
+      return detail.msg || detail.message || JSON.stringify(detail);
+    }
+    return String(detail);
+  };
+
   const handleReviewSubmit = async () => {
     try {
       setSubmitting(true);
@@ -97,28 +110,33 @@ export default function HumanReviewView({ selectedCaseId, onNavigateToVerificati
         return;
       }
 
+      // Explicitly map decisionMode to canonical backend enum: ACCEPTED, EDITED, REJECTED
+      let decisionEnum = 'ACCEPTED';
+      if (decisionMode === 'EDIT') decisionEnum = 'EDITED';
+      else if (decisionMode === 'REJECT') decisionEnum = 'REJECTED';
+
       const payload = {
         reviewer_name: reviewerName || 'Network Engineer',
-        decision: decisionMode === 'ACCEPT' ? 'ACCEPTED' : decisionMode,
+        decision: decisionEnum,
         original_diagnosis: latestDiag ? {
           root_cause: latestDiag.root_cause,
-          confidence: latestDiag.confidence_score || latestDiag.confidence,
+          confidence: latestDiag.confidence_score || latestDiag.confidence || 0.95,
           osi_layer: latestDiag.osi_layer,
           evidence: latestDiag.evidence,
           next_command: latestDiag.next_command,
           fix_steps: latestDiag.fix_steps
         } : {},
-        corrected_diagnosis: decisionMode === 'EDIT' ? {
-          root_cause: editRootCause,
-          confidence: parseFloat(editConfidence),
-          osi_layer: editOsiLayer,
-          next_command: editNextCommand,
-          fix_steps: editFixSteps.split('\n').filter((s) => s.trim().length > 0)
+        corrected_diagnosis: decisionEnum === 'EDITED' ? {
+          root_cause: editRootCause || 'Human-corrected root cause',
+          confidence: parseFloat(editConfidence) || 0.98,
+          osi_layer: editOsiLayer || 'Layer 3 - Network',
+          next_command: editNextCommand || 'show running-config',
+          fix_steps: editFixSteps ? editFixSteps.split('\n').filter((s) => s.trim().length > 0) : []
         } : {},
-        review_notes: decisionMode === 'EDIT' ? reviewNotes : reviewNotes || 'Human approved fix.',
-        rejection_reason: decisionMode === 'REJECT' ? rejectionReason : null,
-        why_ai_incorrect: whyAiIncorrect || (decisionMode === 'EDIT' ? reviewNotes : null),
-        modified_commands: decisionMode === 'EDIT' ? [
+        review_notes: decisionEnum === 'EDITED' ? reviewNotes : (reviewNotes || 'Human approved fix.'),
+        rejection_reason: decisionEnum === 'REJECTED' ? rejectionReason : null,
+        why_ai_incorrect: whyAiIncorrect || (decisionEnum === 'EDITED' ? reviewNotes : null),
+        modified_commands: decisionEnum === 'EDITED' && editFixSteps ? [
           { device: 'R1', commands: editFixSteps.split('\n').filter((s) => s.trim().length > 0) }
         ] : []
       };
@@ -127,11 +145,12 @@ export default function HumanReviewView({ selectedCaseId, onNavigateToVerificati
       await loadCaseAndReviews(currentCaseId);
       alert(`Human review submitted successfully: ${payload.decision}`);
     } catch (err) {
-      alert('Error submitting review: ' + (err.response?.data?.detail || err.message));
+      alert('Error submitting review: ' + formatErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
   };
+
 
   const latestDiag = caseData?.diagnoses?.[0];
   const ruleFindings = caseData?.rule_findings || [];

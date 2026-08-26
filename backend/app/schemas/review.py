@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class ReviewBase(BaseModel):
     reviewer_name: str = Field(default="Network Engineer", description="Name of reviewing engineer")
-    decision: str = Field(..., description="ACCEPTED, EDITED, REJECTED (or APPROVED)")
+    decision: str = Field(..., description="ACCEPTED, EDITED, REJECTED (or ACCEPT, EDIT, REJECT, APPROVED)")
     original_diagnosis: Optional[Dict[str, Any]] = Field(default_factory=dict)
     corrected_diagnosis: Optional[Dict[str, Any]] = Field(default_factory=dict)
     review_notes: Optional[str] = None
@@ -16,9 +16,15 @@ class ReviewBase(BaseModel):
     @model_validator(mode="after")
     def validate_decision_fields(self):
         dec = self.decision.upper()
-        if dec == "APPROVED":
+        if dec in ["APPROVED", "ACCEPT"]:
             dec = "ACCEPTED"
             self.decision = "ACCEPTED"
+        elif dec == "EDIT":
+            dec = "EDITED"
+            self.decision = "EDITED"
+        elif dec == "REJECT":
+            dec = "REJECTED"
+            self.decision = "REJECTED"
 
         if dec not in ["ACCEPTED", "EDITED", "REJECTED"]:
             raise ValueError("Decision must be ACCEPTED, EDITED, or REJECTED.")
