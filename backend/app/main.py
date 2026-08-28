@@ -10,6 +10,24 @@ from app.api.router import api_router
 async def lifespan(app: FastAPI):
     # Initialize SQLite tables on startup
     init_db()
+    
+    # Auto-seed database if empty
+    try:
+        from app.core.database import SessionLocal
+        from app.models.case import Case
+        from app.services.case_loader import seed_cases
+        from app.services.responsible_ai import seed_responsible_ai_examples
+
+        db = SessionLocal()
+        try:
+            if db.query(Case).count() == 0:
+                seed_cases(db)
+                seed_responsible_ai_examples(db)
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"Auto-seed notification: {e}")
+
     yield
 
 
